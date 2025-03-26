@@ -4,11 +4,11 @@ from transformers import pipeline
 
 app = Flask(__name__)
 
-# Load the summarization model
-summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
+# Load the Hugging Face T5-small model for summarization
+summarizer = pipeline("summarization", model="t5-small")
 
 @app.route('/extract_text', methods=['POST'])
-def extract_and_summarize_text():
+def extract_text():
     if 'pdf' not in request.files:
         return jsonify({"error": "No PDF file uploaded"}), 400
     
@@ -20,21 +20,16 @@ def extract_and_summarize_text():
             text = page.extract_text()
             if text:
                 extracted_text += text + "\n"
-    
+
+    # If no text was extracted
     if not extracted_text.strip():
-        return jsonify({"error": "No text extracted from PDF"}), 400
+        return jsonify({"error": "No text found in the PDF"}), 400
 
-    # Summarize text (limit per model constraints)
-    max_input_length = 1024
-    summarized_text = ""
-    
-    # Split text if it's too long
-    for i in range(0, len(extracted_text), max_input_length):
-        chunk = extracted_text[i:i+max_input_length]
-        summary = summarizer(chunk, max_length=200, min_length=50, do_sample=False)
-        summarized_text += summary[0]['summary_text'] + " "
+    # Summarize extracted text (T5-small has a 512 token limit per input)
+    summary = summarizer(extracted_text, max_length=150, min_length=50, do_sample=False)
 
-    return jsonify({"summary": summarized_text.strip()})
+    return jsonify({"summary": summary[0]['summary_text']})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    from waitress import serve
+    serve(app, host="0.0.0.0", port=5000)

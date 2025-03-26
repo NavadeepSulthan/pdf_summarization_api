@@ -1,4 +1,6 @@
 flask
-pdfplumber 
-transformers 
+pdfplumber
+transformers
 torch
+gunicorn
+waitress

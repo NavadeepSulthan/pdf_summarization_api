@@ -1,6 +1,4 @@
 flask
 pdfplumber
-transformers
-torch
-gunicorn
+requests
 waitress

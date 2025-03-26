@@ -1,11 +1,22 @@
 from flask import Flask, request, jsonify
 import pdfplumber
-from transformers import pipeline
+import requests
 
 app = Flask(__name__)
 
-# Load the Hugging Face T5-small model for summarization
-summarizer = pipeline("summarization", model="t5-small")
+# Hugging Face Inference API (T5-small for Summarization)
+HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/t5-small"
+HUGGINGFACE_API_TOKEN = "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"  # Replace with your API key
+HEADERS = {"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}
+
+def summarize_text(text):
+    payload = {"inputs": text, "parameters": {"max_length": 150, "min_length": 50, "do_sample": False}}
+    response = requests.post(HUGGINGFACE_API_URL, headers=HEADERS, json=payload)
+    
+    if response.status_code == 200:
+        return response.json()[0]["summary_text"]
+    else:
+        return "Summarization failed."
 
 @app.route('/extract_text', methods=['POST'])
 def extract_text():
@@ -21,14 +32,12 @@ def extract_text():
             if text:
                 extracted_text += text + "\n"
 
-    # If no text was extracted
     if not extracted_text.strip():
         return jsonify({"error": "No text found in the PDF"}), 400
 
-    # Summarize extracted text (T5-small has a 512 token limit per input)
-    summary = summarizer(extracted_text, max_length=150, min_length=50, do_sample=False)
+    summary = summarize_text(extracted_text)
 
-    return jsonify({"summary": summary[0]['summary_text']})
+    return jsonify({"summary": summary})
 
 if __name__ == "__main__":
     from waitress import serve

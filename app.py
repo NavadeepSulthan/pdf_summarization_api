@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 import requests
+import pdfplumber
 
 app = Flask(__name__)
 
@@ -16,26 +17,30 @@ def extract_text():
     extracted_text = ""
 
     try:
-        import pdfplumber
         with pdfplumber.open(pdf_file) as pdf:
             for page in pdf.pages:
                 extracted_text += page.extract_text() + "\n"
     except Exception as e:
-        return jsonify({"error": f"Failed to extract text: {str(e)}"}), 500
+        return jsonify({"error": f"Text extraction failed: {str(e)}"}), 500
 
     if not extracted_text.strip():
         return jsonify({"error": "No text extracted from PDF"}), 400
 
-    # 🔹 Send extracted text to Hugging Face for summarization
-    payload = {"inputs": f"summarize: {extracted_text[:3000]}"}  # Limiting text size
-    response = requests.post(API_URL, headers=HEADERS, json=payload)
+    # Prepare data for Hugging Face
+    payload = {"inputs": f"summarize: {extracted_text[:3000]}"}
+    
+    try:
+        response = requests.post(API_URL, headers=HEADERS, json=payload)
+        response_data = response.json()
 
-    if response.status_code != 200:
-        return jsonify({"error": "Summarization failed", "details": response.json()}), 500
+        if response.status_code != 200:
+            return jsonify({"error": "Summarization API failed", "details": response_data}), 500
 
-    summary = response.json()[0]['generated_text']
+        summary = response_data[0]['generated_text']
+        return jsonify({"summary": summary})
 
-    return jsonify({"summary": summary})
+    except Exception as e:
+        return jsonify({"error": f"Internal Server Error: {str(e)}"}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

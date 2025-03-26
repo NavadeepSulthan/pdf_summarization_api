@@ -98,17 +98,12 @@ def extract_text():
     <body>
         <h1>PDF Summary</h1>
         <div class="container">
-            <h2>Extracted Text:</h2>
-            <pre>{{ extracted_text }}</pre>
-
             <h2>Summarized Text:</h2>
             <pre>{{ summary }}</pre>
-
-            <a href="/">Upload Another PDF</a>
         </div>
     </body>
     </html>
-    """, extracted_text=extracted_text, summary=summary)
+    """, summary=summary)
 
 if __name__ == "__main__":
     from waitress import serve

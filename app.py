@@ -12,7 +12,7 @@ HEADERS = {"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}
 def extract_text():
     if 'pdf' not in request.files:
         return jsonify({"error": "No PDF file uploaded"}), 400
-    
+
     pdf_file = request.files['pdf']
     extracted_text = ""
 
@@ -26,20 +26,31 @@ def extract_text():
     if not extracted_text.strip():
         return jsonify({"error": "No text extracted from PDF"}), 400
 
-    # Prepare data for Hugging Face
+    # Prepare data for Hugging Face API
     payload = {"inputs": f"summarize: {extracted_text[:3000]}"}
-    
+
     try:
         response = requests.post(API_URL, headers=HEADERS, json=payload)
         response_data = response.json()
 
-        if response.status_code != 200:
-            return jsonify({"error": "Summarization API failed", "details": response_data}), 500
+        print("Hugging Face Response:", response_data)  # Debugging
 
-        summary = response_data[0]['generated_text']
+        # Handle different response formats
+        if isinstance(response_data, list) and "generated_text" in response_data[0]:
+            summary = response_data[0]["generated_text"]
+        elif isinstance(response_data, dict) and "summary_text" in response_data:
+            summary = response_data["summary_text"]
+        else:
+            return jsonify({"error": "Summarization API returned an unexpected response", "details": response_data}), 500
+
         return jsonify({"summary": summary})
 
     except Exception as e:
+        return jsonify({"error": f"Internal Server Error: {str(e)}"}), 500
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
+
         return jsonify({"error": f"Internal Server Error: {str(e)}"}), 500
 
 if __name__ == "__main__":

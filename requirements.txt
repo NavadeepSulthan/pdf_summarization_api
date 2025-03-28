@@ -1,5 +1,6 @@
-flask 
-google-generativeai 
-pymupdf 
+Flask
 waitress
-re
+google-generativeai
+PyMuPDF
+Markdown
+requests

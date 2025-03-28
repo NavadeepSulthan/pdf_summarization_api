@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, render_template
 import fitz  # PyMuPDF for PDF extraction
 import google.generativeai as genai
 import os
-
+import re 
 app = Flask(__name__)
 
 # Configure Gemini API

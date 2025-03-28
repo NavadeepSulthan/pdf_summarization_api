@@ -1,4 +1,4 @@
-flask
-pdfplumber
-requests
+flask 
+google-generativeai 
+pymupdf 
 waitress

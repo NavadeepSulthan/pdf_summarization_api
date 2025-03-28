@@ -44,7 +44,7 @@ def upload_page():
 
 @app.route('/extract_text', methods=['POST'])
 def extract_text():
-    """Extracts text from a PDF file and summarizes it."""
+    """Extracts text from a PDF file and summarizes it, then displays in HTML."""
     if 'pdf' not in request.files:
         return jsonify({"error": "No PDF file uploaded"}), 400
 
@@ -58,12 +58,10 @@ def extract_text():
     if not extracted_text.strip():
         return jsonify({"error": "No text extracted from PDF"}), 400
 
-    summary = summarize_text(extracted_text[:125000])  # Limiting input to avoid API overload
+    summary = summarize_text(extracted_text[:125000])  # Limit input to avoid API overload
 
-    return jsonify({
-        "summary": summary
-    })
-
+    # Render HTML with extracted summary
+    return render_template("summary.html", summary=summary)
 
 if __name__ == "__main__":
     from waitress import serve

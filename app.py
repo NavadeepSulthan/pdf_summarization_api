@@ -10,8 +10,6 @@ GOOGLE_API_KEY = "AIzaSyD_fHU2OINK5MwEIOUEgoyj60-JroAk57k"  # Replace with your 
 genai.configure(api_key=GOOGLE_API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-002")
 
-
-# Function to extract text from a PDF
 def extract_text_from_pdf(pdf_path):
     text = ""
     try:
@@ -21,7 +19,6 @@ def extract_text_from_pdf(pdf_path):
     except Exception as e:
         return f"Error reading PDF: {str(e)}"
     return text
-
 
 # Function to summarize text using Gemini AI
 def summarize_text(text):
@@ -35,16 +32,14 @@ def summarize_text(text):
     response = model.generate_content(prompt)
     return response.text.strip()
 
-
 @app.route('/')
 def upload_page():
     """Serve the upload page."""
     return render_template("upload.html")
 
-
 @app.route('/extract_text', methods=['POST'])
 def extract_text():
-    """Extracts text from a PDF file and summarizes it, then displays in HTML."""
+    """Extracts text from a PDF file, summarizes it, and renders a UI-friendly HTML page."""
     if 'pdf' not in request.files:
         return jsonify({"error": "No PDF file uploaded"}), 400
 
@@ -58,10 +53,14 @@ def extract_text():
     if not extracted_text.strip():
         return jsonify({"error": "No text extracted from PDF"}), 400
 
-    summary = summarize_text(extracted_text[:125000])  # Limit input to avoid API overload
-
-    # Render HTML with extracted summary
-    return render_template("summary.html", summary=summary)
+    # Limit input length to avoid API overload (if necessary)
+    summary = summarize_text(extracted_text[:125000])
+    
+    # Assume summary is returned as a JSON-like text (even if it's a string, we treat it as the summary)
+    # Convert newlines to <br> to preserve formatting in HTML
+    formatted_summary = summary.replace("\n", "<br>")
+    
+    return render_template("summary.html", summary=formatted_summary)
 
 if __name__ == "__main__":
     from waitress import serve

@@ -1,36 +1,46 @@
 from flask import Flask, request, jsonify, render_template
-import pdfplumber
-import requests
-import textwrap
+import fitz  # PyMuPDF for PDF extraction
+import google.generativeai as genai
+import os
 
 app = Flask(__name__)
 
-# Hugging Face API Details
-HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
-HUGGINGFACE_API_TOKEN = "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"  # Replace with your API key
-HEADERS = {"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}
+# Configure Gemini API
+GOOGLE_API_KEY = "AIzaSyD_fHU2OINK5MwEIOUEgoyj60-JroAk57k"  # Replace with your actual API Key
+genai.configure(api_key=GOOGLE_API_KEY)
+model = genai.GenerativeModel("gemini-1.5-pro-002")
 
+
+# Function to extract text from a PDF
+def extract_text_from_pdf(pdf_path):
+    text = ""
+    try:
+        doc = fitz.open(pdf_path)  # Open PDF
+        for page in doc:
+            text += page.get_text("text") + "\n"
+    except Exception as e:
+        return f"Error reading PDF: {str(e)}"
+    return text
+
+
+# Function to summarize text using Gemini AI
 def summarize_text(text):
-    """Splits text into chunks & summarizes each separately."""
-    chunk_size = 500  # Set chunk size (model limit is ~1024 tokens)
-    text_chunks = textwrap.wrap(text, chunk_size)
+    prompt = f"""
+    Summarize the following text concisely while keeping key concepts.
+    Include the most important points and generate at least 30 minutes of reading content.
+    Ensure the summary is easy to understand.
+    
+    {text}
+    """
+    response = model.generate_content(prompt)
+    return response.text.strip()
 
-    summarized_text = ""
-    for chunk in text_chunks:
-        payload = {"inputs": chunk, "parameters": {"max_length": 200, "min_length": 50, "do_sample": False}}
-        response = requests.post(HUGGINGFACE_API_URL, headers=HEADERS, json=payload)
-
-        if response.status_code == 200 and "summary_text" in response.json()[0]:
-            summarized_text += response.json()[0]["summary_text"] + " "
-        else:
-            summarized_text += "[Error summarizing this section] "
-
-    return summarized_text.strip()
 
 @app.route('/')
 def upload_page():
     """Serve the upload page."""
     return render_template("upload.html")
+
 
 @app.route('/extract_text', methods=['POST'])
 def extract_text():
@@ -39,25 +49,21 @@ def extract_text():
         return jsonify({"error": "No PDF file uploaded"}), 400
 
     pdf_file = request.files['pdf']
-    extracted_text = ""
+    pdf_path = os.path.join("uploads", pdf_file.filename)
+    os.makedirs("uploads", exist_ok=True)
+    pdf_file.save(pdf_path)
 
-    try:
-        with pdfplumber.open(pdf_file) as pdf:
-            for page in pdf.pages:
-                text = page.extract_text()
-                if text:
-                    extracted_text += text + "\n"
-    except Exception as e:
-        return jsonify({"error": f"Text extraction failed: {str(e)}"}), 500
+    extracted_text = extract_text_from_pdf(pdf_path)
 
     if not extracted_text.strip():
         return jsonify({"error": "No text extracted from PDF"}), 400
 
-    summary = summarize_text(extracted_text)
+    summary = summarize_text(extracted_text[:125000])  # Limiting input to avoid API overload
 
     return jsonify({
         "summary": summary
     })
+
 
 if __name__ == "__main__":
     from waitress import serve

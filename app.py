@@ -10,6 +10,7 @@ GOOGLE_API_KEY = "AIzaSyD_fHU2OINK5MwEIOUEgoyj60-JroAk57k"  # Replace with your 
 genai.configure(api_key=GOOGLE_API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-002")
 
+# Function to extract text from a PDF
 def extract_text_from_pdf(pdf_path):
     text = ""
     try:
@@ -19,6 +20,7 @@ def extract_text_from_pdf(pdf_path):
     except Exception as e:
         return f"Error reading PDF: {str(e)}"
     return text
+
 
 # Function to summarize text using Gemini AI
 def summarize_text(text):
@@ -32,14 +34,45 @@ def summarize_text(text):
     response = model.generate_content(prompt)
     return response.text.strip()
 
+
+# Function to format markdown-like syntax into HTML
+def format_markdown(text):
+    # Convert **...** to <strong>...</strong>
+    text = re.sub(r"\*\*(.*?)\*\*", r"<strong>\1</strong>", text)
+    
+    # Process lines: convert lines starting with "* " to bullet list items.
+    lines = text.splitlines()
+    formatted_lines = []
+    in_list = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("* "):
+            if not in_list:
+                formatted_lines.append("<ul>")
+                in_list = True
+            # Remove the leading "* " and wrap with <li> tag
+            formatted_lines.append(f"<li>{stripped[2:].strip()}</li>")
+        else:
+            if in_list:
+                formatted_lines.append("</ul>")
+                in_list = False
+            formatted_lines.append(line)
+    if in_list:
+        formatted_lines.append("</ul>")
+    
+    # Replace remaining newlines with <br> tags for readability
+    return "<br>".join(formatted_lines)
+
+
 @app.route('/')
 def upload_page():
     """Serve the upload page."""
     return render_template("upload.html")
 
+
 @app.route('/extract_text', methods=['POST'])
 def extract_text():
-    """Extracts text from a PDF file, summarizes it, and renders a UI-friendly HTML page."""
+    """Extracts text from a PDF file, summarizes it, applies formatting, and renders an HTML page."""
     if 'pdf' not in request.files:
         return jsonify({"error": "No PDF file uploaded"}), 400
 
@@ -49,18 +82,16 @@ def extract_text():
     pdf_file.save(pdf_path)
 
     extracted_text = extract_text_from_pdf(pdf_path)
-
     if not extracted_text.strip():
         return jsonify({"error": "No text extracted from PDF"}), 400
 
-    # Limit input length to avoid API overload (if necessary)
-    summary = summarize_text(extracted_text[:125000])
+    summary = summarize_text(extracted_text[:125000])  # Limiting input to avoid overload
     
-    # Assume summary is returned as a JSON-like text (even if it's a string, we treat it as the summary)
-    # Convert newlines to <br> to preserve formatting in HTML
-    formatted_summary = summary.replace("\n", "<br>")
+    # Apply custom markdown formatting to preserve original spacing, bolding, and bullets.
+    formatted_summary = format_markdown(summary)
     
     return render_template("summary.html", summary=formatted_summary)
+
 
 if __name__ == "__main__":
     from waitress import serve
